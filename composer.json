@@ -18,7 +18,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Killtw\\Api": "src/"
+            "Killtw\\Api\\": "src/"
         },
         "files": [
             "src/helper.php"
