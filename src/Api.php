@@ -52,25 +52,17 @@ class Api
      * @param $uri
      * @param $method
      * @param array $parameters
+     * @param bool $collection
      *
      * @return mixed|string
      */
-    public function call($uri, $method, $parameters = [])
+    public function call($uri, $method, $parameters = [], $collection = true)
     {
-        $method = strtoupper($method);
-
         try {
             $request = $this->request->create($uri, $method, $parameters);
-
             $dispatch = $this->router->dispatch($request);
 
-            $response = $dispatch->getContent();
-
-            if ($dispatch->headers->get('CONTENT-TYPE') == 'application/json') {
-                $response = json_decode($response);
-            }
-
-            return $response;
+            return $this->getResponse($dispatch, $dispatch->getContent(), $collection);
         } catch (NotFoundHttpException $e) {
             throw new NotFoundHttpException('Request Not Found.');
         }
@@ -80,25 +72,71 @@ class Api
      * @param $uri
      * @param $method
      * @param array $parameters
+     * @param bool $collection
      *
      * @return mixed|string
      */
-    public function callRemote($uri, $method, $parameters= [])
+    public function callRemote($uri, $method, $parameters= [], $collection = true)
     {
-        $client = $this->client;
-
         try {
-            $request = $client->request($method, $uri, $parameters);
-            $response = $request->getBody()->getContents();
+            $request = $this->client->request($method, $uri, $parameters);
 
-            if ($request->getHeader('CONTENT-TYPE') == 'application/json') {
-                $response = json_decode($response);
-            }
-
-            return $response;
+            return $this->getResponse($request, $request->getBody()->getContents(), $collection);
         } catch (RequestException $e) {
             throw new NotFoundHttpException('Request Not Found.');
         }
+    }
+
+    /**
+     * @param $request
+     *
+     * @return bool
+     */
+    private function isContentAJson($request)
+    {
+        if (method_exists($request, 'getHeader')) {
+            $contentType = $request->getHeader('CONTENT-TYPE');
+        } else {
+            $contentType = $request->headers->get('CONTENT-TYPE');
+        }
+
+        return ($contentType == 'application/json');
+    }
+
+    /**
+     * @param $request
+     * @param $response
+     * @param $collection
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    private function getResponse($request, $response, $collection)
+    {
+        if ($this->isContentAJson($request)) {
+            $response = json_decode($response);
+
+            if ($collection) {
+                $response = $this->transformContentToCollection($response);
+            }
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param $response
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    private function transformContentToCollection($response)
+    {
+        array_walk_recursive($response, function ($value) {
+            if (is_array($value)) {
+                $value = collect($value);
+            }
+        });
+
+        return collect($response);
     }
 
     /**
@@ -110,16 +148,17 @@ class Api
      */
     public function __call($method = 'get', $parameters = [])
     {
-        if (in_array($method, ['get', 'post', 'put', 'patch', 'delete'])) {
+        if (in_array(strtoupper($method), ['get', 'post', 'put', 'patch', 'delete'])) {
             $uri = array_shift($parameters);
+            $collection = array_pop($parameters);
             $parameters = current($parameters);
             $parameters = is_array($parameters) ? $parameters : [];
 
             if (! str_contains($uri, 'http')) {
-                return $this->callRemote($uri, $method, $parameters);
+                return $this->callRemote($uri, $method, $parameters, $collection);
             }
 
-            return $this->call($uri, $method, $parameters);
+            return $this->call($uri, $method, $parameters, $collection);
         }
 
         throw new \Exception('Request method is not accepted.');
