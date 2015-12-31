@@ -2,6 +2,7 @@
 
 namespace Killtw\Api;
 
+use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\Request;
@@ -130,13 +131,17 @@ class Api
      */
     private function transformContentToCollection($response)
     {
-        array_walk_recursive($response, function ($value) {
-            if (is_array($value)) {
-                $value = collect($value);
-            }
-        });
+        $result = new Collection();
 
-        return collect($response);
+        foreach ($response as $key => $value) {
+            if (is_array($value) || is_object($value)) {
+                $result->put($key, $this->transformContentToCollection($value));
+            } else {
+                $result->put($key, $value);
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -144,7 +149,7 @@ class Api
      * @param array $parameters
      *
      * @return mixed|string
-     * @throws \Exception
+     * @throws Exception
      */
     public function __call($method = 'get', $parameters = [])
     {
@@ -161,6 +166,6 @@ class Api
             return $this->call($uri, $method, $parameters, $collection);
         }
 
-        throw new \Exception('Request method is not accepted.');
+        throw new Exception('Request method is not accepted.');
     }
 }
