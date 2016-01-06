@@ -60,8 +60,13 @@ class Api
     public function call($uri, $method, $parameters = [], $collection = true)
     {
         try {
+            $origin_input = $this->request->input();
+
             $request = $this->request->create($uri, $method, $parameters);
+            $this->request->replace($request->input());
+
             $dispatch = $this->router->dispatch($request);
+            $this->request->replace($origin_input);
 
             return $this->getResponse($dispatch, $dispatch->getContent(), $collection);
         } catch (NotFoundHttpException $e) {
