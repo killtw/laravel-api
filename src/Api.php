@@ -164,7 +164,7 @@ class Api
             $parameters = current($parameters);
             $parameters = is_array($parameters) ? $parameters : [];
 
-            if (! str_contains($uri, 'http')) {
+            if (str_contains($uri, 'http')) {
                 return $this->callRemote($uri, $method, $parameters, $collection);
             }
 
