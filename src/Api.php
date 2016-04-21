@@ -101,12 +101,12 @@ class Api
     private function isContentAJson($request)
     {
         if (method_exists($request, 'getHeader')) {
-            $contentType = $request->getHeader('CONTENT-TYPE');
+            $contentType = $request->getHeader('CONTENT-TYPE')[0];
         } else {
             $contentType = $request->headers->get('CONTENT-TYPE');
         }
 
-        return ($contentType == 'application/json');
+        return ($contentType == 'application/json' or $contentType == 'text/javascript; charset=UTF-8');
     }
 
     /**
@@ -158,7 +158,7 @@ class Api
      */
     public function __call($method = 'get', $parameters = [])
     {
-        if (in_array(strtoupper($method), ['get', 'post', 'put', 'patch', 'delete'])) {
+        if (in_array(strtoupper($method), ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])) {
             $uri = array_shift($parameters);
             $collection = array_pop($parameters);
             $parameters = current($parameters);
